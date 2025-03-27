@@ -1,76 +1,82 @@
 /****************************************************
-   Exemplo de uso de um ESP32 com sensor ultrassônico
-   (HC-SR04) para acionar um servo motor caso a 
-   distância seja menor que 30 cm.
+   Projeto: Servo motor controlado por sensor ultrassônico
+   Descrição: Aciona um servo motor quando a distância
+   detectada pelo sensor HC-SR04 for menor que 30 cm.
 ****************************************************/
 
 // Bibliotecas necessárias
-#include <Arduino.h>
 #include <ESP32Servo.h>
 
-// Definição dos pinos do HC-SR04
-const int triggerPin = 5;  // GPIO 5 (exemplo)
-const int echoPin    = 18; // GPIO 18 (exemplo)
+// Definição dos pinos
+const int TRIGGER_PIN = 5;    // GPIO 5 para trigger do HC-SR04
+const int ECHO_PIN = 18;      // GPIO 18 para echo do HC-SR04
+const int SERVO_PIN = 4;      // GPIO 4 para o servo motor
 
-// Definição do pino do servo
-const int servoPin   = 4;  // GPIO 4 (exemplo)
+// Constantes do projeto
+const float DISTANCIA_LIMITE = 10.0;  // Distância limite em centímetros
+const int ANGULO_FECHADO = 0;         // Ângulo quando não detecta objeto
+const int ANGULO_ABERTO = 90;         // Ângulo quando detecta objeto
 
-// Variáveis para o cálculo de distância
-long duration;
-float distanceCm;
+// Variáveis para cálculo da distância
+long duracao;
+float distancia;
 
-// Cria um objeto Servo
-Servo myServo;
+// Objeto do servo motor
+Servo servoMotor;
 
 void setup() {
-  // Inicialização da serial para debug
+  // Inicializa comunicação serial para monitoramento
   Serial.begin(115200);
+  Serial.println("Iniciando sistema...");
 
-  // Configuração dos pinos do sensor ultrassônico
-  pinMode(triggerPin, OUTPUT);
-  pinMode(echoPin, INPUT);
+  // Configura pinos do sensor ultrassônico
+  pinMode(TRIGGER_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
 
-  // Anexa o servo ao pino especificado
-  myServo.attach(servoPin);
-
-  // Posiciona o servo inicialmente em 0 graus (fechado)
-  myServo.write(0);
+  // Configura e posiciona o servo motor
+  servoMotor.attach(SERVO_PIN);
+  servoMotor.write(ANGULO_FECHADO);
+  
+  Serial.println("Sistema iniciado!");
 }
 
 void loop() {
-  // Limpa o pino trigger
-  digitalWrite(triggerPin, LOW);
-  delayMicroseconds(2);
+  // Mede a distância atual
+  distancia = medirDistancia();
 
-  // Sinal de disparo do sensor ultrassônico
-  digitalWrite(triggerPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(triggerPin, LOW);
-
-  // Medição do tempo do eco
-  duration = pulseIn(echoPin, HIGH);
-
-  // Calcular a distância em centímetros
-  // Velocidade do som ~ 340 m/s => 29.1 us/cm (aprox.)
-  // distance = (duration * velocidadeSom) / 2
-  // Para HC-SR04: distanceCm = duration * 0.034 / 2
-  distanceCm = duration * 0.034 / 2;
-
-  // Imprime distância para debug
-  Serial.print("Distancia: ");
-  Serial.print(distanceCm);
+  // Mostra a distância no monitor serial
+  Serial.print("Distância medida: ");
+  Serial.print(distancia);
   Serial.println(" cm");
 
-  // Verifica se a distância é menor que 30 cm
-  if (distanceCm < 30) {
-    // Abre a “porta” (por exemplo, gira para 90°)
-    myServo.write(90);
-    Serial.println("Servo acionado! Distancia inferior a 30 cm.");
+  // Verifica se há objeto próximo e aciona o servo
+  if (distancia < DISTANCIA_LIMITE && distancia > 0) {
+    servoMotor.write(ANGULO_ABERTO);
+    Serial.println("Objeto detectado! Servo acionado.");
   } else {
-    // Fecha a “porta” (retorna para 0°)
-    myServo.write(0);
+    servoMotor.write(ANGULO_FECHADO);
   }
 
-  // Atraso para estabilizar leituras
-  delay(200);
+  // Pequeno delay para estabilização
+  delay(2000);
+}
+
+// Função para medir a distância usando o HC-SR04
+float medirDistancia() {
+  // Limpa o trigger
+  digitalWrite(TRIGGER_PIN, LOW);
+  delayMicroseconds(2);
+  
+  // Envia pulso de trigger
+  digitalWrite(TRIGGER_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIGGER_PIN, LOW);
+  
+  // Mede a duração do pulso echo
+  duracao = pulseIn(ECHO_PIN, HIGH);
+  
+  // Calcula e retorna a distância em centímetros
+  // Fórmula: distância = (duração * velocidade do som) / 2
+  // Velocidade do som = 340 m/s = 0.034 cm/µs
+  return (duracao * 0.034) / 2;
 }
